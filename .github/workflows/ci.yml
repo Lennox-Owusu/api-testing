@@ -28,13 +28,108 @@ jobs:
           restore-keys: ${{ runner.os }}-m2
 
       - name: Run tests
+        id: run_tests
         run: mvn test
 
       - name: Generate Allure Report
+        if: always()
         run: mvn allure:report
 
       - name: Upload Allure Report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: allure-report
           path: target/site/allure-maven-plugin
+
+      # ── Slack Notification ──────────────────────────────────────────────────
+      - name: Notify Slack on Success
+        if: success()
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload: |
+            {
+              "text": "✅ *${{ github.repository }}* — Tests passed!",
+              "attachments": [
+                {
+                  "color": "good",
+                  "fields": [
+                    { "title": "Branch",    "value": "${{ github.ref_name }}", "short": true },
+                    { "title": "Triggered", "value": "${{ github.actor }}",    "short": true },
+                    { "title": "Commit",    "value": "${{ github.sha }}",      "short": false },
+                    { "title": "Run",       "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      - name: Notify Slack on Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1.27.0
+        with:
+          payload: |
+            {
+              "text": "❌ *${{ github.repository }}* — Tests FAILED!",
+              "attachments": [
+                {
+                  "color": "danger",
+                  "fields": [
+                    { "title": "Branch",    "value": "${{ github.ref_name }}", "short": true },
+                    { "title": "Triggered", "value": "${{ github.actor }}",    "short": true },
+                    { "title": "Commit",    "value": "${{ github.sha }}",      "short": false },
+                    { "title": "Run",       "value": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}", "short": false }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+      # ── Gmail Notification ──────────────────────────────────────────────────
+      - name: Notify Gmail on Success
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: ${{ secrets.GMAIL_USERNAME }}
+          subject: "✅ Tests Passed — ${{ github.repository }} (${{ github.ref_name }})"
+          body: |
+            ✅ All tests passed successfully.
+
+            Repository : ${{ github.repository }}
+            Branch     : ${{ github.ref_name }}
+            Commit     : ${{ github.sha }}
+            Triggered  : ${{ github.actor }}
+
+            View run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notify Gmail on Failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          to: ${{ secrets.NOTIFY_EMAIL }}
+          from: ${{ secrets.GMAIL_USERNAME }}
+          subject: "❌ Tests FAILED — ${{ github.repository }} (${{ github.ref_name }})"
+          body: |
+            ❌ One or more tests have failed.
+
+            Repository : ${{ github.repository }}
+            Branch     : ${{ github.ref_name }}
+            Commit     : ${{ github.sha }}
+            Triggered  : ${{ github.actor }}
+
+            View run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
