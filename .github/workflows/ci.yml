@@ -42,7 +42,11 @@ jobs:
         if: always()
         id: failed_tests
         run: |
-          FAILED=$(grep -oP 'FAILED\s+\K\S+' test-output.txt | head -20 | sed 's/^/• /' | tr '\n' '|')
+          FAILED=$(grep -oP '(?<=\[ERROR\]   )\S+\.\S+(?=[ :\-])' test-output.txt \
+            | grep -v 'surefire\|maven\|org\.' \
+            | head -20 \
+            | sed 's/^/• /' \
+            | tr '\n' '|')
           echo "list=$FAILED" >> $GITHUB_OUTPUT
 
       - name: Generate Allure Report
