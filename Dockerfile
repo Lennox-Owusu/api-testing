@@ -1,7 +1,10 @@
-FROM maven:3.9.4-eclipse-temurin-17
+FROM maven:3.9.4-eclipse-temurin-17 AS builder
 
 WORKDIR /app
 
-COPY . .
+# Copy only Maven-related files first (layer caching)
+COPY pom.xml .
+COPY src ./src
 
-RUN mvn test
+# Run tests at container runtime, not build time
+CMD ["mvn", "clean", "test"]
